@@ -1,5 +1,5 @@
 flask>=2.0.0
-opencv-python>=4.5.0  # 包含cv2
-ultralytics>=8.0.0
+opencv-python-headless>=4.5.0  # 无GUI的OpenCV
+ultralytics>=8.0.0             # 自带轻量版PyTorch
 numpy>=1.20.0
-pyttsx3>=2.90         # 可选（小程序播报时可删除）
+gunicorn>=20.0.0
