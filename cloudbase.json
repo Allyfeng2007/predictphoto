@@ -1,0 +1,15 @@
+{
+  "envId": "prod-6geucygt87d9bdb7",
+  "service": {    "name": "pytest-secret
+",
+    "containerPort": 80,
+    "dockerfilePath": "./Dockerfile",
+    "buildDir": ".",
+    "minNum": 1,
+    "maxNum": 2,
+    "cpu": 1,
+    "mem": 2,
+    "policyType": "cpu",
+    "policyThreshold": 60
+  }
+}
