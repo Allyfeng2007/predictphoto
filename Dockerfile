@@ -1,36 +1,33 @@
-# ===== 第一阶段：构建依赖 =====
-FROM python:3.9-slim as builder
+# 更小的基础镜像
+FROM python:3.10-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# 仅装 OpenCV 运行时需要的基础库
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 libgl1 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 复制依赖列表（利用Docker缓存层）
+# 先通过 CPU 源安装 PyTorch & torchvision（避免 CUDA 巨包）
+# 这一步一定要和下面的 requirements 分开
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.3.1 torchvision==0.18.1
+
+# 其它依赖仍可走官方或国内镜像（需要的话可改为清华镜像）
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装依赖（使用国内镜像源）
-RUN pip install --user --no-cache-dir -r requirements.txt \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    && find /root/.local -type d -name '__pycache__' -exec rm -rf {} +
-
-# ===== 第二阶段：生产镜像 =====
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# 从builder阶段复制已安装的Python依赖
-COPY --from=builder /root/.local /root/.local
-
-# 复制必要文件（模型+代码）
+# 复制代码和模型
 COPY app.py .
 COPY yolov8n.pt .
 
-# 设置环境变量
-ENV PATH=/root/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1 \
-    GUNICORN_WORKERS=2 \
-    GUNICORN_THREADS=2
-
-# 暴露端口
 EXPOSE 80
 
-# 启动命令（使用gunicorn）
-CMD ["gunicorn", "-w", "${GUNICORN_WORKERS}", "-b", "0.0.0.0:80", "app:app"]
+# 使用 gunicorn 监听 80（符合云托管要求）
+# gthread 可以更好地处理短请求；按需调整 workers/threads
+CMD ["gunicorn", "-b", "0.0.0.0:80", "-w", "2", "-k", "gthread", "--threads", "4", "--timeout", "120", "app:app"]
